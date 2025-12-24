@@ -1,0 +1,83 @@
+name: Ollama AI Processing
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ai-processing:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: System information
+      run: |
+        echo "Runner OS: ${{ runner.os }}"
+        echo "Available disk space:"
+        df -h
+        echo "Available memory:"
+        free -h
+        echo "CPU information:"
+        nproc
+
+    - name: Install Ollama
+      run: |
+        curl -fsSL https://ollama.com/install.sh | sh
+
+    - name: Start Ollama service
+      run: |
+        ollama serve &
+        sleep 10
+
+    - name: Verify Ollama installation
+      run: |
+        ollama --version
+        ollama list
+
+    - name: Download AI model
+      run: |
+        echo "Downloading Llama 3.2 1B model..."
+        ollama pull llama3.2:1b
+
+    - name: Verify model availability
+      run: |
+        echo "Available models:"
+        ollama list
+        echo "Model download complete"
+
+    - name: Execute AI query
+      run: |
+        echo "Processing AI prompt..."
+        RESPONSE=$(ollama run llama3.2:1b "Explain what DevOps means in one sentence, focusing on automation and collaboration.")
+        echo "AI Response:"
+        echo "$RESPONSE"
+
+    - name: Advanced AI analysis
+      run: |
+        mkdir -p outputs
+        WORKFLOW_FILE=".github/workflows/ollama-basic.yml"
+        PROMPT="Analyze this GitHub Actions workflow and suggest three specific improvements for production use. Focus on security, performance, and maintainability."
+        WORKFLOW_CONTENT=$(cat "$WORKFLOW_FILE")
+        echo "Analyzing your workflow at $WORKFLOW_FILE..."
+        RESPONSE=$(ollama run llama3.2:1b "$PROMPT\n\n$WORKFLOW_CONTENT")
+        echo "AI Analysis:"
+        echo "$RESPONSE"
+        echo "$RESPONSE" > "outputs/workflow-analysis-$(date '+%Y-%m-%d_%H-%M-%S').txt"
+
+    - name: Save AI response
+      run: |
+        TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+        ollama run llama3.2:1b "Explain what DevOps means in one sentence, focusing on automation and collaboration." > "outputs/ai-response-$TIMESTAMP.txt"
+        echo "Response saved to outputs/ai-response-$TIMESTAMP.txt"
+        cat "outputs/ai-response-$TIMESTAMP.txt"
+
+    - name: Upload AI responses
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: ai-responses-${{ github.run_number }}
+        path: outputs/
+        retention-days: 30
