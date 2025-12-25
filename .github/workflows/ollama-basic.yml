@@ -23,6 +23,24 @@ jobs:
         echo "CPU information:"
         nproc
 
+    - name: Cache Ollama models
+      uses: actions/cache@v3
+      with:
+        path: ~/.ollama
+        key: ollama-models-${{ runner.os }}-llama3.2-1b
+        restore-keys: |
+          ollama-models-${{ runner.os }}-
+
+    - name: Check cached models
+      run: |
+        if [ -d ~/.ollama ]; then
+          echo "Model cache exists"
+          echo "Cache size: $(du -sh ~/.ollama | cut -f1)"
+          ls -la ~/.ollama/
+        else
+          echo "No model cache found - fresh download required"
+        fi
+
     - name: Install Ollama
       run: |
         curl -fsSL https://ollama.com/install.sh | sh
@@ -37,10 +55,14 @@ jobs:
         ollama --version
         ollama list
 
-    - name: Download AI model
+    - name: Download AI model (if not cached)
       run: |
-        echo "Downloading Llama 3.2 1B model..."
-        ollama pull llama3.2:1b
+        if ! ollama list | grep -q "llama3.2:1b"; then
+          echo "Downloading Llama 3.2 1B model..."
+          ollama pull llama3.2:1b
+        else
+          echo "Model already available from cache"
+        fi
 
     - name: Verify model availability
       run: |
