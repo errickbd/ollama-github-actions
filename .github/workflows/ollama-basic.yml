@@ -32,6 +32,15 @@ jobs:
         path: ~/ollama-bin
         key: ollama-install-${{ runner.os }}-v1
 
+    - name: Cache Ollama models
+      uses: actions/cache@v3
+      id: model-cache
+      with:
+        path: ~/.ollama
+        key: ollama-models-${{ runner.os }}-${{ hashFiles('config.yaml') }}
+        restore-keys: |
+          ollama-models-${{ runner.os }}-
+
     - name: Install Ollama
       run: |
         if [ -f ~/ollama-bin/ollama ]; then
@@ -61,8 +70,40 @@ jobs:
 
     - name: Download AI model
       run: |
-        echo "Downloading Llama 3.2 1B model..."
-        ollama pull llama3.2:1b
+        if ollama list | grep -q "llama3.2:1b"; then
+          echo "✓ Model already cached"
+        else
+          echo "↓ Downloading Llama 3.2 1B model..."
+          ollama pull llama3.2:1b
+        fi
+
+    - name: Download models from config
+      run: |
+        python -c "
+        import yaml
+        from pathlib import Path
+        import subprocess
+        
+        config_path = Path('config.yaml')
+        if config_path.exists():
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+            
+            models = set()
+            models.add(config.get('models', {}).get('classifier', 'llama3.2:1b'))
+            models.add(config.get('models', {}).get('default', 'llama3.2:1b'))
+            for model in config.get('model_assignments', {}).values():
+                models.add(model)
+            
+            print(f'Models to ensure available: {models}')
+            for model in models:
+                result = subprocess.run(['ollama', 'list'], capture_output=True, text=True)
+                if model not in result.stdout:
+                    print(f'Downloading: {model}')
+                    subprocess.run(['ollama', 'pull', model], check=True)
+                else:
+                    print(f'Already available: {model}')
+        "
 
     - name: Verify model availability
       run: |
@@ -136,13 +177,30 @@ jobs:
         echo "| ⏭️ Skipped | $SKIPPED |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
+        echo "### 🤖 Model Routing" >> $GITHUB_STEP_SUMMARY
+        if [ -f analysis_result.txt ]; then
+          TASK_TYPE=$(grep "task_type=" analysis_result.txt | cut -d= -f2)
+          MODEL_USED=$(grep "model_used=" analysis_result.txt | cut -d= -f2)
+          TOTAL_TIME=$(grep "total_time=" analysis_result.txt | cut -d= -f2)
+          echo "| Decision | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Task Classification | $TASK_TYPE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model Selected | $MODEL_USED |" >> $GITHUB_STEP_SUMMARY
+          echo "| Analysis Time | ${TOTAL_TIME}s |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No routing data available" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
         echo "### ⚡ Performance Metrics" >> $GITHUB_STEP_SUMMARY
-        echo "- Cache Hit: ${{ steps.ollama-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Installation Cache Hit: ${{ steps.ollama-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Model Cache Hit: ${{ steps.model-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
         echo "- Workflow Run: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "- test-results-run-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "- workflow-results-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
@@ -171,28 +229,54 @@ jobs:
         print(f'Created result directory: {result_dir}')
         "
 
-    - name: Generate workflow results
+    - name: Run multi-model analysis
       run: |
-        RESULT_DIR=$(cat current_result_dir.txt)
+        python -c "
+        import sys
+        sys.path.append('.')
         
-        echo "Generating AI analysis..."
-        WORKFLOW_FILE=".github/workflows/ollama-basic.yml"
-        PROMPT="Analyze this GitHub Actions workflow and suggest three specific improvements for production use. Focus on security, performance, and maintainability."
-        WORKFLOW_CONTENT=$(cat "$WORKFLOW_FILE")
+        from ollama_pipeline import load_config, ModelRouter, ResultStorage
+        from pathlib import Path
         
-        ollama run llama3.2:1b "$PROMPT
+        config = load_config()
+        router = ModelRouter(config)
+        storage = ResultStorage('results')
+        
+        run_dir = storage.create_run_directory('${{ github.run_number }}')
+        
+        workflow_content = Path('.github/workflows/ollama-basic.yml').read_text()
+        
+        result = router.analyze(workflow_content)
+        
+        if result['success'] and result['analysis']:
+            storage.save_analysis('workflow-analysis.txt', result['analysis'], {
+                'task_type': result['task_type'],
+                'model_used': result['model_used'],
+                'timing': result['timing']
+            })
+        
+        storage.save_metadata({
+            'workflow_run': '${{ github.run_number }}',
+            'commit_sha': '${{ github.sha }}',
+            'task_type': result['task_type'],
+            'model_used': result['model_used'],
+            'classification_time': result['timing']['classification'],
+            'analysis_time': result['timing']['analysis'],
+            'total_time': result['timing']['total']
+        })
+        
+        with open('analysis_result.txt', 'w') as f:
+            f.write(f\"task_type={result['task_type']}\n\")
+            f.write(f\"model_used={result['model_used']}\n\")
+            f.write(f\"success={result['success']}\n\")
+            f.write(f\"total_time={result['timing']['total']}\n\")
+        
+        print('Analysis complete!')
+        "
 
-        $WORKFLOW_CONTENT" > "$RESULT_DIR/workflow-analysis.txt"
-        
-        echo "AI Analysis:"
-        cat "$RESULT_DIR/workflow-analysis.txt"
-        
-        echo "Workflow Run: ${{ github.run_number }}" > "$RESULT_DIR/metadata.txt"
-        echo "Timestamp: $(date)" >> "$RESULT_DIR/metadata.txt"
-        echo "Commit: ${{ github.sha }}" >> "$RESULT_DIR/metadata.txt"
-        
-        echo "Results saved to $RESULT_DIR"
-        ls -la "$RESULT_DIR"
+    - name: Generate historical report
+      run: |
+        python scripts/generate_report.py --results-dir results --output results/historical_report.md
 
     - name: Configure git for automated commits
       run: |

@@ -1,0 +1,32 @@
+# Ollama Pipeline Configuration
+
+models:
+  classifier: llama3.2:1b
+  default: llama3.2:1b
+
+model_assignments:
+  code_review: llama3.2:1b
+  documentation: llama3.2:1b
+  bug_analysis: llama3.2:1b
+
+prompts:
+  classify: |
+    Classify this content as exactly one of: code_review, documentation, bug_analysis
+    Respond with only the classification, nothing else.
+  code_review: |
+    Analyze this code for potential issues and improvements.
+    Focus on: bugs, performance, security, maintainability.
+  documentation: |
+    Evaluate this documentation for quality and completeness.
+    Focus on: clarity, coverage, examples, accuracy.
+  bug_analysis: |
+    Analyze this content for bugs and issues.
+    Focus on: root cause, severity, recommended fixes.
+
+thresholds:
+  max_response_time: 60
+  min_response_length: 50
+
+cache:
+  enabled: true
+  directory: ~/.ollama
