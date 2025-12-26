@@ -23,37 +23,39 @@ jobs:
         echo "CPU information:"
         nproc
 
-    - name: Cache Ollama models
+    - name: Cache Ollama installation
       uses: actions/cache@v3
+      id: ollama-cache
       with:
-        path: ~/.ollama
-        key: ollama-models-${{ runner.os }}-llama3.2-1b
-        restore-keys: |
-          ollama-models-${{ runner.os }}-
-
-    - name: Check cached models
-      run: |
-        if [ -d ~/.ollama ]; then
-          echo "Model cache exists"
-          echo "Cache size: $(du -sh ~/.ollama | cut -f1)"
-          ls -la ~/.ollama/
-        else
-          echo "No model cache found - fresh download required"
-        fi
+        path: ~/ollama-bin
+        key: ollama-install-${{ runner.os }}-v1
 
     - name: Install Ollama
       run: |
-        curl -fsSL https://ollama.com/install.sh | sh
+        if [ -f ~/ollama-bin/ollama ]; then
+          echo "✓ Using cached Ollama installation"
+          sudo cp ~/ollama-bin/ollama /usr/local/bin/ollama
+          sudo chmod +x /usr/local/bin/ollama
+        else
+          echo "↓ Installing Ollama (first run)..."
+          curl -fsSL https://ollama.com/install.sh | sh
+          mkdir -p ~/ollama-bin
+          cp /usr/local/bin/ollama ~/ollama-bin/
+          echo "✓ Cached Ollama binary for future runs"
+        fi
+
+    - name: Verify Ollama installation
+      run: |
+        ollama --version
+        echo "Cache hit: ${{ steps.ollama-cache.outputs.cache-hit }}"
+        if [ -f ~/ollama-bin/ollama ]; then
+          echo "Binary size: $(du -h ~/ollama-bin/ollama | cut -f1)"
+        fi
 
     - name: Start Ollama service
       run: |
         ollama serve &
         sleep 10
-
-    - name: Verify Ollama installation
-      run: |
-        ollama --version
-        ollama list
 
     - name: Download AI model (if not cached)
       run: |
