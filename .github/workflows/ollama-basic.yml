@@ -68,6 +68,118 @@ jobs:
         ollama list
         echo "Model download complete"
 
+    - name: Setup Python testing environment
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest
+
+    - name: Create AI workflow tests
+      run: |
+        cat > test_ai_workflow.py << 'EOF'
+        import subprocess
+        import pytest
+        import os
+
+        def test_ollama_service_health():
+            """Verify Ollama service is responsive"""
+            result = subprocess.run(['ollama', '--version'], capture_output=True, text=True)
+            assert result.returncode == 0
+            assert 'ollama version' in result.stdout.lower()
+
+        def test_model_availability():
+            """Verify required model is available"""
+            result = subprocess.run(['ollama', 'list'], capture_output=True, text=True)
+            assert result.returncode == 0
+            assert 'llama3.2:1b' in result.stdout
+
+        def test_basic_ai_functionality():
+            """Test basic AI query and response"""
+            result = subprocess.run([
+                'ollama', 'run', 'llama3.2:1b', 
+                'Respond with exactly: TEST_PASSED'
+            ], capture_output=True, text=True, timeout=30)
+            assert result.returncode == 0
+            assert len(result.stdout.strip()) > 0
+
+        def test_cache_directory_exists():
+            """Verify installation cache directory was created"""
+            cache_dir = os.path.expanduser('~/ollama-bin')
+            assert os.path.exists(cache_dir)
+            assert os.path.isfile(os.path.join(cache_dir, 'ollama'))
+        EOF
+
+    - name: Run automated tests
+      run: |
+        python -m pytest test_ai_workflow.py -v
+
+    - name: Performance benchmarking
+      run: |
+        echo "=== Workflow Performance Report ===" > performance-report.txt
+        echo "Timestamp: $(date)" >> performance-report.txt
+        echo "Workflow Run: ${{ github.run_number }}" >> performance-report.txt
+        echo "Cache Hit: ${{ steps.ollama-cache.outputs.cache-hit }}" >> performance-report.txt
+        
+        echo "Testing AI response time..." >> performance-report.txt
+        start_time=$(date +%s)
+        ollama run llama3.2:1b "What is continuous integration?" > ai_response.txt
+        end_time=$(date +%s)
+        response_time=$((end_time - start_time))
+        
+        echo "AI Response Time: ${response_time} seconds" >> performance-report.txt
+        echo "Response Length: $(wc -w < ai_response.txt) words" >> performance-report.txt
+        
+        cat performance-report.txt
+
+    - name: Upload performance report
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-report-${{ github.run_number }}
+        path: performance-report.txt
+        retention-days: 30
+
+    - name: Capture test results for analysis
+      if: always()
+      run: |
+        mkdir -p analysis
+        python -m pytest test_ai_workflow.py -v --tb=short > analysis/test_output.txt 2>&1 || true
+        
+        if grep -q "FAILED" analysis/test_output.txt; then
+          echo "TEST_FAILURES=true" >> $GITHUB_ENV
+          echo "Found test failures - preparing for AI analysis"
+        else
+          echo "TEST_FAILURES=false" >> $GITHUB_ENV
+          echo "All tests passed"
+        fi
+        
+        cat analysis/test_output.txt
+
+    - name: Generate test metrics
+      if: always()
+      run: |
+        TOTAL_TESTS=$(grep -c "def test_" test_ai_workflow.py || echo "0")
+        PASSED_TESTS=$(grep -c "PASSED" analysis/test_output.txt || echo "0")
+        FAILED_TESTS=$(grep -c "FAILED" analysis/test_output.txt || echo "0")
+        
+        cat > analysis/test_metrics.txt << EOF
+        Test Execution Summary:
+        - Total Tests: $TOTAL_TESTS
+        - Passed: $PASSED_TESTS  
+        - Failed: $FAILED_TESTS
+        - Workflow Run: ${{ github.run_number }}
+        - Timestamp: $(date)
+        - Installation Cache: ${{ steps.ollama-cache.outputs.cache-hit }}
+        EOF
+        
+        cat analysis/test_metrics.txt
+
+    - name: Upload test analysis
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-analysis-${{ github.run_number }}
+        path: analysis/
+        retention-days: 30
+
     - name: Execute AI query
       run: |
         echo "Processing AI prompt..."
