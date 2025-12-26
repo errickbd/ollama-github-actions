@@ -68,6 +68,10 @@ jobs:
         ollama list
         echo "Model download complete"
 
+    - name: Run modular test suite
+      run: python scripts/test_runner.py
+      continue-on-error: true
+
     - name: Install test dependencies
       run: |
         python -m pip install --upgrade pip
@@ -149,36 +153,62 @@ jobs:
           test-output.txt
         retention-days: 30
 
-    - name: Execute AI query
+    - name: Create timestamped result directory
       run: |
-        echo "Processing AI prompt..."
-        RESPONSE=$(ollama run llama3.2:1b "Explain what DevOps means in one sentence, focusing on automation and collaboration.")
-        echo "AI Response:"
-        echo "$RESPONSE"
+        python -c "
+        import sys
+        sys.path.append('.')
+        from utils.directory_manager import DirectoryManager
+        
+        dm = DirectoryManager('results')
+        result_dir = dm.create_timestamped_dir('run-${{ github.run_number }}')
+        
+        with open('current_result_dir.txt', 'w') as f:
+            f.write(str(result_dir))
+        
+        print(f'Created result directory: {result_dir}')
+        "
 
-    - name: Advanced AI analysis
+    - name: Generate workflow results
       run: |
-        mkdir -p outputs
+        RESULT_DIR=$(cat current_result_dir.txt)
+        
+        echo "Generating AI analysis..."
         WORKFLOW_FILE=".github/workflows/ollama-basic.yml"
         PROMPT="Analyze this GitHub Actions workflow and suggest three specific improvements for production use. Focus on security, performance, and maintainability."
         WORKFLOW_CONTENT=$(cat "$WORKFLOW_FILE")
-        echo "Analyzing your workflow at $WORKFLOW_FILE..."
-        RESPONSE=$(ollama run llama3.2:1b "$PROMPT\n\n$WORKFLOW_CONTENT")
+        
+        ollama run llama3.2:1b "$PROMPT
+
+        $WORKFLOW_CONTENT" > "$RESULT_DIR/workflow-analysis.txt"
+        
         echo "AI Analysis:"
-        echo "$RESPONSE"
-        echo "$RESPONSE" > "outputs/workflow-analysis-$(date '+%Y-%m-%d_%H-%M-%S').txt"
+        cat "$RESULT_DIR/workflow-analysis.txt"
+        
+        echo "Workflow Run: ${{ github.run_number }}" > "$RESULT_DIR/metadata.txt"
+        echo "Timestamp: $(date)" >> "$RESULT_DIR/metadata.txt"
+        echo "Commit: ${{ github.sha }}" >> "$RESULT_DIR/metadata.txt"
+        
+        echo "Results saved to $RESULT_DIR"
+        ls -la "$RESULT_DIR"
 
-    - name: Save AI response
+    - name: Configure git for automated commits
       run: |
-        TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-        ollama run llama3.2:1b "Explain what DevOps means in one sentence, focusing on automation and collaboration." > "outputs/ai-response-$TIMESTAMP.txt"
-        echo "Response saved to outputs/ai-response-$TIMESTAMP.txt"
-        cat "outputs/ai-response-$TIMESTAMP.txt"
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
 
-    - name: Upload AI responses
+    - name: Commit results to repository
+      run: |
+        RESULT_DIR=$(cat current_result_dir.txt)
+        
+        git add results/
+        git commit -m "Add results from workflow run #${{ github.run_number }}" || echo "No changes to commit"
+        git push origin main || echo "Push failed - may need permissions"
+      continue-on-error: true
+
+    - name: Upload workflow results
       uses: actions/upload-artifact@v4
-      if: always()
       with:
-        name: ai-responses-${{ github.run_number }}
-        path: outputs/
+        name: workflow-results-${{ github.run_number }}
+        path: results/
         retention-days: 30
