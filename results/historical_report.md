@@ -1,11 +1,11 @@
 # Historical Analysis Report
 
-**Generated:** 2025-12-27 00:08:07
-**Total Runs Analyzed:** 0
+**Generated:** 2025-12-27 00:22:03
+**Total Runs Analyzed:** 1
 
 ## Executive Summary
 
-⚠️ Need at least 2 runs for trends, have 0
+⚠️ Need at least 2 runs for trends, have 1
 
 Run more workflows to enable trend analysis.
 
@@ -23,7 +23,9 @@ Run more workflows to enable trend analysis.
 
 ## Recent Workflow Runs
 
-No workflow runs found yet.
+| Timestamp | Files Created | Directory |
+|-----------|---------------|-----------|
+| 2025-12-27T00:22:03 | 1 | run-17-2025-12-27_00-20-35 |
 
 ## Recommendations
 

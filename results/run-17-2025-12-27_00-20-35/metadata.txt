@@ -1,0 +1,7 @@
+workflow_run: 17
+commit_sha: 2fda511201b2025ed17fcc08b14b1cc6e4261334
+task_type: code_review
+model_used: llama3.2:1b
+classification_time: 28.61
+analysis_time: 60.0
+total_time: 88.62
