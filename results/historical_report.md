@@ -1,33 +1,34 @@
 # Historical Analysis Report
 
-**Generated:** 2025-12-27 03:55:08
-**Total Runs Analyzed:** 5
+**Generated:** 2025-12-27 15:24:41
+**Total Runs Analyzed:** 6
 
 ## Executive Summary
 
-- **Success Rate:** 20.0% 📈
-- **Total Files Generated:** 7
-- **Runs Analyzed:** 5
+- **Success Rate:** 33.3% 📈
+- **Total Files Generated:** 10
+- **Runs Analyzed:** 6
 
 ## Trends
 
 | Metric | Value | Trend |
 |--------|-------|-------|
-| Success Rate | 20.0% | 📈 improving |
-| Total Runs | 5 | ➡️ stable |
-| Files Generated | 7 | ➡️ stable |
+| Success Rate | 33.3% | 📈 improving |
+| Total Runs | 6 | ➡️ stable |
+| Files Generated | 10 | ➡️ stable |
 
 ## File Types Generated
 
 | Type | Count |
 |------|-------|
-| .txt | 6 |
-| .json | 1 |
+| .txt | 8 |
+| .json | 2 |
 
 ## Recent Workflow Runs
 
 | Timestamp | Files Created | Directory |
 |-----------|---------------|-----------|
+| 2025-12-27T15:24:41 | 3 | run-24-2025-12-27_14-47-19 |
 | 2025-12-27T03:55:08 | 3 | run-21-2025-12-27_03-19-13 |
 | 2025-12-27T03:01:19 | 1 | run-20-2025-12-27_02-58-51 |
 | 2025-12-27T01:47:49 | 1 | run-19-2025-12-27_01-46-21 |
