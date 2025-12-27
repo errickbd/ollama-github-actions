@@ -11,6 +11,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 from contextlib import contextmanager
+from monitoring.correlation import get_correlation_id
+
 
 class JsonFormatter(logging.Formatter):
     """Custom formatter for JSON log output."""
@@ -26,7 +28,8 @@ class JsonFormatter(logging.Formatter):
             'line': record.lineno
         }
         return json.dumps(log_entry)
-    
+
+
 class WorkflowLogger:
     """Enterprise-grade logger for workflow automation."""
     
@@ -77,28 +80,36 @@ class WorkflowLogger:
         self.logger.addHandler(json_handler)
 
     def info(self, message, **kwargs):
-        """Log info level message with optional context."""
+        """Log info level message with correlation ID."""
+        corr_id = get_correlation_id()
+        full_message = f"[{corr_id}] {message}"
         if kwargs:
-            message = f"{message} | Context: {json.dumps(kwargs)}"
-        self.logger.info(message)
+            full_message = f"{full_message} | Context: {json.dumps(kwargs)}"
+        self.logger.info(full_message)
     
     def error(self, message, **kwargs):
-        """Log error level message with optional context."""
+        """Log error level message with correlation ID."""
+        corr_id = get_correlation_id()
+        full_message = f"[{corr_id}] {message}"
         if kwargs:
-            message = f"{message} | Context: {json.dumps(kwargs)}"
-        self.logger.error(message)
+            full_message = f"{full_message} | Context: {json.dumps(kwargs)}"
+        self.logger.error(full_message)
     
     def warning(self, message, **kwargs):
-        """Log warning level message with optional context."""
+        """Log warning level message with correlation ID."""
+        corr_id = get_correlation_id()
+        full_message = f"[{corr_id}] {message}"
         if kwargs:
-            message = f"{message} | Context: {json.dumps(kwargs)}"
-        self.logger.warning(message)
+            full_message = f"{full_message} | Context: {json.dumps(kwargs)}"
+        self.logger.warning(full_message)
     
     def debug(self, message, **kwargs):
-        """Log debug level message with optional context."""
+        """Log debug level message with correlation ID."""
+        corr_id = get_correlation_id()
+        full_message = f"[{corr_id}] {message}"
         if kwargs:
-            message = f"{message} | Context: {json.dumps(kwargs)}"
-        self.logger.debug(message)
+            full_message = f"{full_message} | Context: {json.dumps(kwargs)}"
+        self.logger.debug(full_message)
 
     @contextmanager
     def timer(self, operation_name):
@@ -127,6 +138,9 @@ class WorkflowLogger:
 
 
 if __name__ == "__main__":
+    from monitoring.correlation import generate_correlation_id
+    generate_correlation_id()
+    
     logger = WorkflowLogger("test")
     
     logger.info("Starting test workflow")

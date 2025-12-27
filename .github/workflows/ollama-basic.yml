@@ -15,9 +15,27 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Initialize correlation tracking
+      run: |
+        python -c "
+        import sys
+        import os
+        sys.path.append('.')
+        from monitoring.correlation import generate_correlation_id
+        
+        corr_id = generate_correlation_id()
+        
+        # Export for other steps
+        with open(os.environ['GITHUB_ENV'], 'a') as f:
+            f.write(f'CORRELATION_ID={corr_id}\n')
+        
+        print(f'Workflow correlation ID: {corr_id}')
+        "
+
     - name: System information
       run: |
         echo "Runner OS: ${{ runner.os }}"
+        echo "Correlation ID: $CORRELATION_ID"
         echo "Available disk space:"
         df -h
         echo "Available memory:"
@@ -68,14 +86,37 @@ jobs:
         ollama serve &
         sleep 10
 
-    - name: Download AI model
+    - name: Download model with recovery
       run: |
-        if ollama list | grep -q "llama3.2:1b"; then
-          echo "✓ Model already cached"
-        else
-          echo "↓ Downloading Llama 3.2 1B model..."
-          ollama pull llama3.2:1b
-        fi
+        python -c "
+        import subprocess
+        import sys
+        import os
+        sys.path.append('.')
+        
+        from monitoring.correlation import set_correlation_id
+        from monitoring.incident_responder import IncidentResponder
+        
+        # Restore correlation ID
+        set_correlation_id(os.environ.get('CORRELATION_ID', 'unknown'))
+        
+        responder = IncidentResponder(max_attempts=3)
+        
+        # Check if model exists
+        result = subprocess.run(['ollama', 'list'], capture_output=True, text=True)
+        if 'llama3.2:1b' in result.stdout:
+            print('Model already available')
+        else:
+            print('Downloading model...')
+            try:
+                subprocess.run(['ollama', 'pull', 'llama3.2:1b'], check=True)
+                print('Model download successful')
+            except Exception as e:
+                print(f'Download failed, attempting recovery...')
+                if not responder.handle_model_failure('llama3.2:1b', str(e)):
+                    print('Recovery failed!')
+                    sys.exit(1)
+        "
 
     - name: Download models from config
       run: |
@@ -83,6 +124,12 @@ jobs:
         import yaml
         from pathlib import Path
         import subprocess
+        import os
+        import sys
+        sys.path.append('.')
+        from monitoring.correlation import set_correlation_id
+        
+        set_correlation_id(os.environ.get('CORRELATION_ID', 'unknown'))
         
         config_path = Path('config.yaml')
         if config_path.exists():
@@ -115,8 +162,12 @@ jobs:
       run: |
         python -c "
         import sys
+        import os
         sys.path.append('.')
+        from monitoring.correlation import set_correlation_id
         from monitoring.dashboard import WorkflowMonitor
+        
+        set_correlation_id(os.environ.get('CORRELATION_ID', 'unknown'))
         
         monitor = WorkflowMonitor('ollama-enterprise')
         monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
@@ -128,9 +179,13 @@ jobs:
         python -c "
         import sys
         import time
+        import os
         sys.path.append('.')
+        from monitoring.correlation import set_correlation_id
         from monitoring.dashboard import WorkflowMonitor
         from scripts.test_runner import run_all_tests
+        
+        set_correlation_id(os.environ.get('CORRELATION_ID', 'unknown'))
         
         monitor = WorkflowMonitor('ollama-enterprise')
         monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
@@ -146,10 +201,6 @@ jobs:
             monitor.track_error('test_execution_failed', str(e))
             monitor.monitor_operation('test_execution', duration, False)
         "
-      continue-on-error: true
-
-    - name: Run modular test suite
-      run: python scripts/test_runner.py
       continue-on-error: true
 
     - name: Install test dependencies
@@ -175,6 +226,7 @@ jobs:
         echo "=== Workflow Performance Report ===" > performance-report.txt
         echo "Timestamp: $(date)" >> performance-report.txt
         echo "Workflow Run: ${{ github.run_number }}" >> performance-report.txt
+        echo "Correlation ID: $CORRELATION_ID" >> performance-report.txt
         echo "Cache Hit: ${{ steps.ollama-cache.outputs.cache-hit }}" >> performance-report.txt
         
         echo "Testing AI response time..." >> performance-report.txt
@@ -194,50 +246,6 @@ jobs:
         name: performance-report-${{ github.run_number }}
         path: performance-report.txt
         retention-days: 30
-
-    - name: Generate test summary
-      if: always()
-      run: |
-        echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        TOTAL=$(grep -c "def test_" tests/*.py || echo "0")
-        PASSED=$(grep -c "PASSED" test-output.txt || echo "0")
-        FAILED=$(grep -c "FAILED" test-output.txt || echo "0")
-        SKIPPED=$(grep -c "SKIPPED" test-output.txt || echo "0")
-        
-        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
-        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Total Tests | $TOTAL |" >> $GITHUB_STEP_SUMMARY
-        echo "| ✅ Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
-        echo "| ❌ Failed | $FAILED |" >> $GITHUB_STEP_SUMMARY
-        echo "| ⏭️ Skipped | $SKIPPED |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        echo "### 🤖 Model Routing" >> $GITHUB_STEP_SUMMARY
-        if [ -f analysis_result.txt ]; then
-          TASK_TYPE=$(grep "task_type=" analysis_result.txt | cut -d= -f2)
-          MODEL_USED=$(grep "model_used=" analysis_result.txt | cut -d= -f2)
-          TOTAL_TIME=$(grep "total_time=" analysis_result.txt | cut -d= -f2)
-          echo "| Decision | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Task Classification | $TASK_TYPE |" >> $GITHUB_STEP_SUMMARY
-          echo "| Model Selected | $MODEL_USED |" >> $GITHUB_STEP_SUMMARY
-          echo "| Analysis Time | ${TOTAL_TIME}s |" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "No routing data available" >> $GITHUB_STEP_SUMMARY
-        fi
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        echo "### ⚡ Performance Metrics" >> $GITHUB_STEP_SUMMARY
-        echo "- Installation Cache Hit: ${{ steps.ollama-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Model Cache Hit: ${{ steps.model-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Workflow Run: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- test-results-run-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-        echo "- workflow-results-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
@@ -259,10 +267,14 @@ jobs:
       run: |
         python -c "
         import sys
+        import os
         sys.path.append('.')
         
+        from monitoring.correlation import set_correlation_id
         from ollama_pipeline import load_config, ModelRouter, ResultStorage
         from pathlib import Path
+        
+        set_correlation_id(os.environ.get('CORRELATION_ID', 'unknown'))
         
         config = load_config()
         router = ModelRouter(config)
@@ -288,6 +300,7 @@ jobs:
         storage.save_metadata({
             'workflow_run': '${{ github.run_number }}',
             'commit_sha': '${{ github.sha }}',
+            'correlation_id': os.environ.get('CORRELATION_ID', 'unknown'),
             'task_type': result['task_type'],
             'model_used': result['model_used'],
             'classification_time': result['timing']['classification'],
@@ -323,30 +336,45 @@ jobs:
         git push origin main || echo "Push failed - may need permissions"
       continue-on-error: true
 
-    - name: Upload results to S3
-      if: env.AWS_ACCESS_KEY_ID != ''
+    - name: Upload results to S3 with protection
+      if: always()
       run: |
         python -c "
         import sys
+        import os
         sys.path.append('.')
+        
+        from monitoring.correlation import set_correlation_id
         from cloud.s3_manager import S3Manager
         from pathlib import Path
         
+        # Restore correlation ID
+        set_correlation_id(os.environ.get('CORRELATION_ID', 'unknown'))
+        
         s3 = S3Manager()
         
+        # Find latest result directory
         result_dirs = list(Path('results').glob('run-*'))
-        if result_dirs:
-            latest = max(result_dirs, key=lambda p: p.stat().st_mtime)
-            
-            metadata = {
-                'workflow_run': '${{ github.run_number }}',
-                'commit_sha': '${{ github.sha }}',
-                'branch': '${{ github.ref_name }}'
-            }
-            
-            s3.upload_workflow_results(latest, '${{ github.run_number }}', metadata)
-        else:
+        if not result_dirs:
             print('No result directories found')
+            exit(0)
+        
+        latest = max(result_dirs, key=lambda p: p.stat().st_mtime)
+        print(f'Uploading results from: {latest}')
+        
+        # Upload each file with protection
+        for file_path in latest.rglob('*'):
+            if file_path.is_file():
+                s3_key = f'results/run-${{ github.run_number }}/{file_path.relative_to(latest)}'
+                location = s3.upload_with_protection(str(file_path), s3_key)
+                print(f'  {file_path.name} -> {location}')
+        
+        # Check if fallback was used
+        fallback_dir = Path('local_backup')
+        if fallback_dir.exists() and any(fallback_dir.rglob('*')):
+            print('WARNING: Some files saved to local fallback storage')
+            with open(os.environ['GITHUB_ENV'], 'a') as f:
+                f.write('FALLBACK_USED=true\n')
         "
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -359,10 +387,14 @@ jobs:
       run: |
         python -c "
         import sys
+        import os
         sys.path.append('.')
+        from monitoring.correlation import set_correlation_id
         from monitoring.dashboard import WorkflowMonitor
         from pathlib import Path
         import shutil
+        
+        set_correlation_id(os.environ.get('CORRELATION_ID', 'unknown'))
         
         monitor = WorkflowMonitor('ollama-enterprise')
         monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
@@ -385,9 +417,76 @@ jobs:
         print(f'Health: {summary[\"health\"][\"checks\"]}')
         "
 
+    - name: Generate test summary
+      if: always()
+      run: |
+        echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        TOTAL=$(grep -c "def test_" tests/*.py || echo "0")
+        PASSED=$(grep -c "PASSED" test-output.txt || echo "0")
+        FAILED=$(grep -c "FAILED" test-output.txt || echo "0")
+        SKIPPED=$(grep -c "SKIPPED" test-output.txt || echo "0")
+        
+        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Total Tests | $TOTAL |" >> $GITHUB_STEP_SUMMARY
+        echo "| ✅ Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
+        echo "| ❌ Failed | $FAILED |" >> $GITHUB_STEP_SUMMARY
+        echo "| ⏭️ Skipped | $SKIPPED |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 🔗 Correlation Tracking" >> $GITHUB_STEP_SUMMARY
+        echo "**Correlation ID:** \`$CORRELATION_ID\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "To trace this run in logs:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "grep $CORRELATION_ID logs/*.log" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 🤖 Model Routing" >> $GITHUB_STEP_SUMMARY
+        if [ -f analysis_result.txt ]; then
+          TASK_TYPE=$(grep "task_type=" analysis_result.txt | cut -d= -f2)
+          MODEL_USED=$(grep "model_used=" analysis_result.txt | cut -d= -f2)
+          TOTAL_TIME=$(grep "total_time=" analysis_result.txt | cut -d= -f2)
+          echo "| Decision | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Task Classification | $TASK_TYPE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model Selected | $MODEL_USED |" >> $GITHUB_STEP_SUMMARY
+          echo "| Analysis Time | ${TOTAL_TIME}s |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No routing data available" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### ⚡ Performance Metrics" >> $GITHUB_STEP_SUMMARY
+        echo "- Installation Cache Hit: ${{ steps.ollama-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Model Cache Hit: ${{ steps.model-cache.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Workflow Run: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 🚨 Incident Summary" >> $GITHUB_STEP_SUMMARY
+        if [ "$FALLBACK_USED" = "true" ]; then
+          echo "⚠️ **Fallback storage was used** - S3 may have been unavailable" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Files saved to \`local_backup/\` directory" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ No incidents detected" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- test-results-run-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "- workflow-results-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+
     - name: Upload workflow results
       uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: workflow-results-${{ github.run_number }}
-        path: results/
+        path: |
+          results/
+          logs/
+          local_backup/
         retention-days: 30

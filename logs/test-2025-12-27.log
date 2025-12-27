@@ -8,3 +8,8 @@
 2025-12-27 08:31:47,343 - INFO - info:83 - Completed: test_operation (1.01s)
 2025-12-27 08:31:47,343 - INFO - info:83 - METRIC: test_count=42 items | Context: {"metric_name": "test_count", "value": 42, "unit": " items", "tags": {}}
 2025-12-27 08:31:47,343 - INFO - info:83 - Test completed successfully
+2025-12-27 10:27:02,496 - INFO - info:88 - [cd43c007] This message should have a correlation ID
+2025-12-27 10:27:30,478 - INFO - info:88 - [f202e4ec] This message should have a correlation ID
+2025-12-27 10:27:32,213 - INFO - info:88 - [4492f6f2] This message should have a correlation ID
+2025-12-27 10:28:14,635 - INFO - info:88 - [0f8d6255] This message should have a correlation ID
+2025-12-27 10:28:14,635 - ERROR - error:96 - [0f8d6255] This error should also have the ID

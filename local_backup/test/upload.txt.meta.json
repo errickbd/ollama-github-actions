@@ -1,0 +1,7 @@
+{
+  "original_s3_key": "test/upload.txt",
+  "correlation_id": "a25d3f17",
+  "timestamp": "2025-12-27T10:45:50.476233",
+  "reason": "S3 circuit breaker open or upload failed",
+  "bucket": "ai-devops-results-errick"
+}
