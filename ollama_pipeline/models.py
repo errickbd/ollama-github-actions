@@ -45,7 +45,7 @@ def timed_operation(func):
 
 
 @timed_operation
-def run_model_query(model, prompt, timeout=60):
+def run_model_query(model, prompt, timeout=None):
     """
     Execute Ollama query and return response.
     
@@ -67,7 +67,6 @@ def run_model_query(model, prompt, timeout=60):
             ['ollama', 'run', model, prompt],
             capture_output=True,
             text=True,
-            timeout=timeout
         )
         
         if result.returncode != 0:
@@ -301,7 +300,7 @@ class ModelRouter:
         analysis_start = time.time()
         
         try:
-            analysis_result = run_model_query(model, full_prompt, timeout=120)
+            analysis_result = run_model_query(model, full_prompt, timeout=60)
             analysis_duration = time.time() - analysis_start
             success = True
             error = None

@@ -237,7 +237,7 @@ jobs:
         with open('current_result_dir.txt', 'w') as f:
             f.write(str(run_dir))
         
-        workflow_content = Path('.github/workflows/ollama-basic.yml').read_text()[:5000]
+        workflow_content = Path('.github/workflows/ollama-basic.yml').read_text()
         
         result = router.analyze(workflow_content)
         
