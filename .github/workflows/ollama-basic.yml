@@ -213,22 +213,6 @@ jobs:
           test-output.txt
         retention-days: 30
 
-    - name: Create timestamped result directory
-      run: |
-        python -c "
-        import sys
-        sys.path.append('.')
-        from utils.directory_manager import DirectoryManager
-        
-        dm = DirectoryManager('results')
-        result_dir = dm.create_timestamped_dir('run-${{ github.run_number }}')
-        
-        with open('current_result_dir.txt', 'w') as f:
-            f.write(str(result_dir))
-        
-        print(f'Created result directory: {result_dir}')
-        "
-
     - name: Run multi-model analysis
       run: |
         python -c "
@@ -243,6 +227,10 @@ jobs:
         storage = ResultStorage('results')
         
         run_dir = storage.create_run_directory('${{ github.run_number }}')
+        
+        # Save the directory path for other steps
+        with open('current_result_dir.txt', 'w') as f:
+            f.write(str(run_dir))
         
         workflow_content = Path('.github/workflows/ollama-basic.yml').read_text()
         
@@ -264,6 +252,12 @@ jobs:
             'analysis_time': result['timing']['analysis'],
             'total_time': result['timing']['total']
         })
+        
+        # Create workflow_summary.json for historical reporting
+        storage.commit_all(
+            workflow_run='${{ github.run_number }}',
+            commit_sha='${{ github.sha }}'
+        )
         
         with open('analysis_result.txt', 'w') as f:
             f.write(f\"task_type={result['task_type']}\n\")
