@@ -1,0 +1,9 @@
+{
+  "task_type": "code_review",
+  "model_used": "llama3.2:1b",
+  "timing": {
+    "classification": 28.52,
+    "analysis": 2213.66,
+    "total": 2242.17
+  }
+}
