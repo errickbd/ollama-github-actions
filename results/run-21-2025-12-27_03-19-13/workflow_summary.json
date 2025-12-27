@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-12-27T03:55:08.730896",
+  "result_directory": "results/run-21-2025-12-27_03-19-13",
+  "files_created": [
+    "metadata.txt",
+    "workflow-analysis.txt.meta.json",
+    "workflow-analysis.txt"
+  ],
+  "workflow_run": "21",
+  "commit_sha": "5d5622a903ef6f6e2e3af2493220b4fdcfbe9e78"
+}
