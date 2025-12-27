@@ -301,7 +301,7 @@ class ModelRouter:
         analysis_start = time.time()
         
         try:
-            analysis_result = run_model_query(model, full_prompt, timeout=60)
+            analysis_result = run_model_query(model, full_prompt, timeout=120)
             analysis_duration = time.time() - analysis_start
             success = True
             error = None

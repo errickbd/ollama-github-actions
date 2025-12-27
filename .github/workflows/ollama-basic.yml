@@ -213,6 +213,11 @@ jobs:
           test-output.txt
         retention-days: 30
 
+    - name: Configure git for automated commits
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+
     - name: Run multi-model analysis
       run: |
         python -c "
@@ -232,7 +237,7 @@ jobs:
         with open('current_result_dir.txt', 'w') as f:
             f.write(str(run_dir))
         
-        workflow_content = Path('.github/workflows/ollama-basic.yml').read_text()
+        workflow_content = Path('.github/workflows/ollama-basic.yml').read_text()[:5000]
         
         result = router.analyze(workflow_content)
         
@@ -271,11 +276,6 @@ jobs:
     - name: Generate historical report
       run: |
         python scripts/generate_report.py --results-dir results --output results/historical_report.md
-
-    - name: Configure git for automated commits
-      run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
 
     - name: Commit results to repository
       run: |
