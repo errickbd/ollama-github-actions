@@ -63,43 +63,6 @@ jobs:
           echo "Binary size: $(du -h ~/ollama-bin/ollama | cut -f1)"
         fi
 
-    - name: Initialize enterprise monitoring
-      run: |
-        python -c "
-        import sys
-        sys.path.append('.')
-        from monitoring.dashboard import WorkflowMonitor
-        
-        monitor = WorkflowMonitor('ollama-enterprise')
-        monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
-        print('Enterprise monitoring initialized')
-        "
-
-    - name: Run monitored test suite
-      run: |
-        python -c "
-        import sys
-        import time
-        sys.path.append('.')
-        from monitoring.dashboard import WorkflowMonitor
-        from scripts.test_runner import run_all_tests
-        
-        monitor = WorkflowMonitor('ollama-enterprise')
-        monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
-        
-        start = time.time()
-        try:
-            with monitor.logger.timer('test_execution'):
-                success = run_all_tests()
-            duration = time.time() - start
-            monitor.monitor_operation('test_execution', duration, success)
-        except Exception as e:
-            duration = time.time() - start
-            monitor.track_error('test_execution_failed', str(e))
-            monitor.monitor_operation('test_execution', duration, False)
-        "
-      continue-on-error: true
-
     - name: Start Ollama service
       run: |
         ollama serve &
@@ -147,6 +110,43 @@ jobs:
         echo "Available models:"
         ollama list
         echo "Model download complete"
+
+    - name: Initialize enterprise monitoring
+      run: |
+        python -c "
+        import sys
+        sys.path.append('.')
+        from monitoring.dashboard import WorkflowMonitor
+        
+        monitor = WorkflowMonitor('ollama-enterprise')
+        monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
+        print('Enterprise monitoring initialized')
+        "
+
+    - name: Run monitored test suite
+      run: |
+        python -c "
+        import sys
+        import time
+        sys.path.append('.')
+        from monitoring.dashboard import WorkflowMonitor
+        from scripts.test_runner import run_all_tests
+        
+        monitor = WorkflowMonitor('ollama-enterprise')
+        monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
+        
+        start = time.time()
+        try:
+            with monitor.logger.timer('test_execution'):
+                success = run_all_tests()
+            duration = time.time() - start
+            monitor.monitor_operation('test_execution', duration, success)
+        except Exception as e:
+            duration = time.time() - start
+            monitor.track_error('test_execution_failed', str(e))
+            monitor.monitor_operation('test_execution', duration, False)
+        "
+      continue-on-error: true
 
     - name: Run modular test suite
       run: python scripts/test_runner.py
