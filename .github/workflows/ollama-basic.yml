@@ -25,6 +25,43 @@ jobs:
         echo "CPU information:"
         nproc
 
+    - name: Initialize enterprise monitoring
+      run: |
+        python -c "
+        import sys
+        sys.path.append('.')
+        from monitoring.dashboard import WorkflowMonitor
+        
+        monitor = WorkflowMonitor('ollama-enterprise')
+        monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
+        print('Enterprise monitoring initialized')
+        "
+
+    - name: Run monitored test suite
+      run: |
+        python -c "
+        import sys
+        import time
+        sys.path.append('.')
+        from monitoring.dashboard import WorkflowMonitor
+        from scripts.test_runner import run_all_tests
+        
+        monitor = WorkflowMonitor('ollama-enterprise')
+        monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
+        
+        start = time.time()
+        try:
+            with monitor.logger.timer('test_execution'):
+                success = run_all_tests()
+            duration = time.time() - start
+            monitor.monitor_operation('test_execution', duration, success)
+        except Exception as e:
+            duration = time.time() - start
+            monitor.track_error('test_execution_failed', str(e))
+            monitor.monitor_operation('test_execution', duration, False)
+        "
+      continue-on-error: true
+
     - name: Cache Ollama installation
       uses: actions/cache@v3
       id: ollama-cache
@@ -285,6 +322,68 @@ jobs:
         git commit -m "Add results from workflow run #${{ github.run_number }}" || echo "No changes to commit"
         git push origin main || echo "Push failed - may need permissions"
       continue-on-error: true
+
+    - name: Upload results to S3
+      if: env.AWS_ACCESS_KEY_ID != ''
+      run: |
+        python -c "
+        import sys
+        sys.path.append('.')
+        from cloud.s3_manager import S3Manager
+        from pathlib import Path
+        
+        s3 = S3Manager()
+        
+        result_dirs = list(Path('results').glob('run-*'))
+        if result_dirs:
+            latest = max(result_dirs, key=lambda p: p.stat().st_mtime)
+            
+            metadata = {
+                'workflow_run': '${{ github.run_number }}',
+                'commit_sha': '${{ github.sha }}',
+                'branch': '${{ github.ref_name }}'
+            }
+            
+            s3.upload_workflow_results(latest, '${{ github.run_number }}', metadata)
+        else:
+            print('No result directories found')
+        "
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: us-east-2
+      continue-on-error: true
+
+    - name: Generate monitoring summary
+      if: always()
+      run: |
+        python -c "
+        import sys
+        sys.path.append('.')
+        from monitoring.dashboard import WorkflowMonitor
+        from pathlib import Path
+        import shutil
+        
+        monitor = WorkflowMonitor('ollama-enterprise')
+        monitor.start_monitoring('${{ github.run_number }}', '${{ github.sha }}')
+        
+        result_dirs = list(Path('results').glob('run-*'))
+        if result_dirs:
+            latest = max(result_dirs, key=lambda p: p.stat().st_mtime)
+        else:
+            latest = Path('results/monitoring')
+            latest.mkdir(parents=True, exist_ok=True)
+        
+        summary = monitor.generate_summary(latest)
+        
+        # Copy logs to results
+        if Path('logs').exists():
+            logs_dest = latest / 'logs'
+            shutil.copytree('logs', logs_dest, dirs_exist_ok=True)
+        
+        print(f'Duration: {summary[\"duration_seconds\"]}s')
+        print(f'Health: {summary[\"health\"][\"checks\"]}')
+        "
 
     - name: Upload workflow results
       uses: actions/upload-artifact@v4

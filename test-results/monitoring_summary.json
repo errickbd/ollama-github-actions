@@ -1,0 +1,26 @@
+{
+  "workflow_name": "test-workflow",
+  "workflow_run": "999",
+  "commit_sha": "abc123",
+  "start_time": "2025-12-27T08:31:59.629469",
+  "end_time": "2025-12-27T08:32:01.087438",
+  "duration_seconds": 1.46,
+  "health": {
+    "timestamp": "2025-12-27T08:32:01.087445",
+    "workflow_run": "999",
+    "checks": {
+      "disk_space": {
+        "status": "healthy",
+        "free_percent": 23.1
+      },
+      "logs_directory": {
+        "status": "healthy",
+        "exists": true
+      },
+      "aws_configured": {
+        "status": "healthy",
+        "configured": true
+      }
+    }
+  }
+}

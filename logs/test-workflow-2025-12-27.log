@@ -1,0 +1,16 @@
+2025-12-27 08:22:41,745 - INFO - info:83 - Starting workflow monitoring | Context: {"workflow_run": "999", "commit_sha": "abc123"}
+2025-12-27 08:22:41,746 - INFO - info:83 - Starting: test_operation
+2025-12-27 08:22:42,751 - INFO - info:83 - Completed: test_operation (1.01s)
+2025-12-27 08:22:42,751 - INFO - info:83 - METRIC: test_operation_duration=1.0s | Context: {"metric_name": "test_operation_duration", "value": 1.0, "unit": "s", "tags": {}}
+2025-12-27 08:22:42,751 - INFO - info:83 - METRIC: test_operation_status=1 | Context: {"metric_name": "test_operation_status", "value": 1, "unit": "", "tags": {}}
+2025-12-27 08:22:43,375 - INFO - info:83 - Health check completed | Context: {"timestamp": "2025-12-27T08:22:42.751310", "workflow_run": "999", "checks": {"disk_space": {"status": "healthy", "free_percent": 23.2}, "logs_directory": {"status": "healthy", "exists": true}, "aws_configured": {"status": "healthy", "configured": true}}}
+2025-12-27 08:22:43,812 - INFO - info:83 - Health check completed | Context: {"timestamp": "2025-12-27T08:22:43.375531", "workflow_run": "999", "checks": {"disk_space": {"status": "healthy", "free_percent": 23.2}, "logs_directory": {"status": "healthy", "exists": true}, "aws_configured": {"status": "healthy", "configured": true}}}
+2025-12-27 08:22:43,812 - INFO - info:83 - Summary generated | Context: {"file": "test-results/monitoring_summary.json"}
+2025-12-27 08:31:59,629 - INFO - info:83 - Starting workflow monitoring | Context: {"workflow_run": "999", "commit_sha": "abc123"}
+2025-12-27 08:31:59,629 - INFO - info:83 - Starting: test_operation
+2025-12-27 08:32:00,634 - INFO - info:83 - Completed: test_operation (1.01s)
+2025-12-27 08:32:00,635 - INFO - info:83 - METRIC: test_operation_duration=1.0s | Context: {"metric_name": "test_operation_duration", "value": 1.0, "unit": "s", "tags": {}}
+2025-12-27 08:32:00,635 - INFO - info:83 - METRIC: test_operation_status=1 | Context: {"metric_name": "test_operation_status", "value": 1, "unit": "", "tags": {}}
+2025-12-27 08:32:01,087 - INFO - info:83 - Health check completed | Context: {"timestamp": "2025-12-27T08:32:00.635083", "workflow_run": "999", "checks": {"disk_space": {"status": "healthy", "free_percent": 23.1}, "logs_directory": {"status": "healthy", "exists": true}, "aws_configured": {"status": "healthy", "configured": true}}}
+2025-12-27 08:32:01,527 - INFO - info:83 - Health check completed | Context: {"timestamp": "2025-12-27T08:32:01.087445", "workflow_run": "999", "checks": {"disk_space": {"status": "healthy", "free_percent": 23.1}, "logs_directory": {"status": "healthy", "exists": true}, "aws_configured": {"status": "healthy", "configured": true}}}
+2025-12-27 08:32:01,528 - INFO - info:83 - Summary generated | Context: {"file": "test-results/monitoring_summary.json"}

@@ -1,0 +1,10 @@
+2025-12-27 08:15:32,651 - INFO - info:83 - Starting test workflow
+2025-12-27 08:15:32,651 - INFO - info:83 - Starting: test_operation
+2025-12-27 08:15:33,657 - INFO - info:83 - Completed: test_operation (1.01s)
+2025-12-27 08:15:33,657 - INFO - info:83 - METRIC: test_count=42 items | Context: {"metric_name": "test_count", "value": 42, "unit": " items", "tags": {}}
+2025-12-27 08:15:33,657 - INFO - info:83 - Test completed successfully
+2025-12-27 08:31:46,337 - INFO - info:83 - Starting test workflow
+2025-12-27 08:31:46,338 - INFO - info:83 - Starting: test_operation
+2025-12-27 08:31:47,343 - INFO - info:83 - Completed: test_operation (1.01s)
+2025-12-27 08:31:47,343 - INFO - info:83 - METRIC: test_count=42 items | Context: {"metric_name": "test_count", "value": 42, "unit": " items", "tags": {}}
+2025-12-27 08:31:47,343 - INFO - info:83 - Test completed successfully
