@@ -1,0 +1,59 @@
+This is a Python script that appears to be part of a GitHub Actions workflo[7D[K
+workflow. It runs on a GitHub Actions environment and performs several task[4D[K
+tasks:
+
+1. Analyzes a GitHub Actions workflow to determine the task type, model use[3D[K
+used, and timing of a specific workflow run.
+2. Uploads the analysis result to a local file (`analysis_result.txt`) and [K
+to an S3 bucket (if the `CORRELATION_ID` environment variable is set).
+3. Generates a monitoring summary of the workflow run, including metrics su[2D[K
+such as total tests, passed, failed, and skipped.
+4. Uploads the monitoring summary to an S3 bucket (if the `CORRELATION_ID` [K
+environment variable is set).
+5. Generates a test summary of the workflow run, including metrics such as [K
+total tests, passed, failed, and skipped.
+6. Uploads the test summary to an S3 bucket (if the `CORRELATION_ID` enviro[6D[K
+environment variable is set).
+7. Uploads the workflow results to an S3 bucket (if the `CORRELATION_ID` en[2D[K
+environment variable is set) and to a local file (`workflow-results-${{ git[3D[K
+github.run_number }}`).
+
+Here are some specific tasks and their configuration:
+
+* `router.analyze`: Analyzes the GitHub Actions workflow and returns the ta[2D[K
+task type, model used, and timing of the workflow run.
+* `storage.save_analysis`: Saves the analysis result to a local file (`anal[6D[K
+(`analysis_result.txt`) and to an S3 bucket (if the `CORRELATION_ID` enviro[6D[K
+environment variable is set).
+* `storage.save_metadata`: Saves metadata about the workflow run, including[9D[K
+including the task type, model used, and timing of the workflow run.
+* `storage.commit_all`: Commits the workflow results to the repository.
+* `aws.s3_manager`: Uploads files to an S3 bucket (if the `CORRELATION_ID` [K
+environment variable is set).
+* `cloud.s3_manager`: Uploads files to an S3 bucket (if the `CORRELATION_ID[15D[K
+`CORRELATION_ID` environment variable is set).
+* `monitoring.correlation`: Uploads logs to an S3 bucket (if the `CORRELATI[10D[K
+`CORRELATION_ID` environment variable is set).
+* `cloud.s3_manager`: Uploads files to an S3 bucket (if the `CORRELATION_ID[15D[K
+`CORRELATION_ID` environment variable is set).
+* `tasks.ollama-cache`: Uploads files to an S3 bucket (if the `CORRELATION_[13D[K
+`CORRELATION_ID` environment variable is set).
+* `tasks.model-cache`: Uploads files to an S3 bucket (if the `CORRELATION_I[14D[K
+`CORRELATION_ID` environment variable is set).
+* `tasks.local_backup`: Uploads files to an S3 bucket (if the `CORRELATION_[13D[K
+`CORRELATION_ID` environment variable is set).
+
+The script uses several GitHub Actions features, including:
+
+* `github.run_number`: The unique identifier of the GitHub Actions workflow[8D[K
+workflow run.
+* `github.sha`: The SHA hash of the GitHub Actions workflow run.
+* `aws_access_key_id` and `aws_secret_access_key`: The AWS credentials used[4D[K
+used to upload files to an S3 bucket.
+* `aws_default_region`: The default AWS region used to upload files to an S[1D[K
+S3 bucket.
+* `aws.s3_manager`: A custom module that uploads files to an S3 bucket.
+* `cloud.s3_manager`: A custom module that uploads files to an S3 bucket.
+* `tasks.ollama-enterprise`: A custom task that generates a monitoring summ[4D[K
+summary of the workflow run.
+* `tasks.local_backup`: A custom task that uploads files to an S3 bucket.

@@ -1,0 +1,9 @@
+{
+  "task_type": "bug_analysis",
+  "model_used": "llama3.2:1b",
+  "timing": {
+    "classification": 2.25,
+    "analysis": 82.07,
+    "total": 84.32
+  }
+}

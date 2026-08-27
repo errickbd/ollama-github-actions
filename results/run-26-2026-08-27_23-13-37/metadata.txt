@@ -1,0 +1,8 @@
+workflow_run: 26
+commit_sha: 9aafd26c3c3dcc6ebf4b02424a0044772751332b
+correlation_id: 3cafa7f6
+task_type: bug_analysis
+model_used: llama3.2:1b
+classification_time: 2.25
+analysis_time: 82.07
+total_time: 84.32
